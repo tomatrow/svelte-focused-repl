@@ -50,27 +50,22 @@ function loader(source: string): Plugin {
 				let subpath = importee.slice(7);
 				if (!subpath) subpath = 'index-client.js';
 				const url = `https://unpkg.com/svelte@next/src/${subpath}`;
-
-				const resolvedUrl = await follow_redirects(url);
-
-				return resolvedUrl;
+				return await follow_redirects(url);
 			}
 
-			if (importee.startsWith('.')) {
-				// relative import in an external file
-				const base =
-					importer && URL.canParse(importer)
-						? importer
-						: `https://unpkg.com/svelte@next/src/${importer?.slice(7)}/`;
-				const url = new URL(importee, base).href;
+			// relative import in an external file
+			if (importee.startsWith('.') && importer) {
+				if (!URL.canParse(importer)) throw new Error('Non URL importer');
+
+				const url = new URL(importee, importer).href;
 
 				return await follow_redirects(url);
-			} else {
-				console.log('not resolved', {
-					importee,
-					importer
-				});
 			}
+
+			console.log('not resolved', {
+				importee,
+				importer
+			});
 		},
 
 		async load(resolved) {

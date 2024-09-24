@@ -62,10 +62,7 @@ function loader(source: string): Plugin {
 				return await follow_redirects(url);
 			}
 
-			console.log('not resolved', {
-				importee,
-				importer
-			});
+			throw new Error('No resolution: ' + JSON.stringify({ importee, importer }));
 		},
 
 		async load(resolved) {

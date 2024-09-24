@@ -3,7 +3,7 @@
 ## Features
 
 - [x] focused editing
-- [ ] arbitrary npm imports via unpkg
+- [x] arbitrary npm imports via unpkg
 - [ ] pwa
 
 ## Todo
@@ -17,8 +17,11 @@
 
 ### 9/23/24
 
-- [ ] bring under git
-- [ ] try to import `watch` from `runed`
+- [x] bring under git
+- [x] try to import `watch` from `runed`
+  - well, didn't work, something about using runes outside
+- [x] import `marked` from `marked`
+  - this one did work
 
 ## Sources
 

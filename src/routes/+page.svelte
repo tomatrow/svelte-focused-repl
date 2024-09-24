@@ -73,7 +73,7 @@
 				App: Component;
 				mount: typeof SvelteMount;
 				unmount: typeof SvelteUnmount;
-			} = eval(output);
+			} = (0, eval)(output);
 
 			const app = mount(App, { target });
 
@@ -93,21 +93,14 @@
 			setup: 'minimal',
 			useTabs: true,
 			tabSize: 4,
-			// theme: svelteTheme,
-			// readonly,
-			// cursorPos: cursor_pos,
-			// lang,
 			langMap: {
 				js: () => import('@codemirror/lang-javascript').then((m) => m.javascript()),
-				// json: () => import('@codemirror/lang-json').then((m) => m.json()),
-				// md: () => import('@codemirror/lang-markdown').then((m) => m.markdown()),
 				css: () => import('@codemirror/lang-css').then((m) => m.css()),
 				svelte: () => import('@replit/codemirror-lang-svelte').then((m) => m.svelte())
 			},
 			// lint: diagnostics,
 			lintOptions: { delay: 200 },
 			autocomplete: true,
-			// extensions: [svelte_rune_completions, js_rune_completions, watcher]
 			instanceStore: cmInstance
 		}}
 	></div>

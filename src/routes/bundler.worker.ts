@@ -1,6 +1,7 @@
 import type { Plugin } from '@rollup/browser';
 import { compile } from 'svelte/compiler';
 import { rollup } from '@rollup/browser';
+import * as resolve from 'resolve.exports';
 
 const FETCH_CACHE = new Map<string, Promise<{ url: string; body: string }>>();
 
@@ -46,21 +47,50 @@ function loader(source: string): Plugin {
 				return importee;
 			}
 
-			if (importee.startsWith('svelte')) {
-				let subpath = importee.slice(7);
-				if (!subpath) subpath = 'index-client.js';
-				const url = `https://unpkg.com/svelte@next/src/${subpath}`;
-				return await follow_redirects(url);
-			}
-
 			// relative import in an external file
 			if (importee.startsWith('.') && importer) {
 				if (!URL.canParse(importer)) throw new Error('Non URL importer');
 
 				const url = new URL(importee, importer).href;
-
-				return await follow_redirects(url);
+				const resolvedUrl = await follow_redirects(url);
+				return resolvedUrl;
 			}
+
+			// svelte import
+			if (importee.startsWith('svelte')) {
+				let subpath = importee.slice(7);
+				if (!subpath) subpath = '/index-client.js';
+				if (subpath === 'store') {
+					subpath = 'store/index-client.js';
+				}
+
+				const url = `https://unpkg.com/svelte@next/src/${subpath}`;
+				const resolvedUrl = await follow_redirects(url);
+				return resolvedUrl;
+			}
+
+			// import of an external package
+			const match = /^((?:@[^/]+\/)?[^/]+)(\/.+)?$/.exec(importee);
+			if (!match) throw new Error(`Invalid import "${importee}"`);
+
+			try {
+				const subpath = `.${match[2] ?? ''}`;
+
+				const pkg_url = await follow_redirects(`https://unpkg.com/${importee}/package.json`);
+				if (!pkg_url) throw new Error();
+
+				const pkg_json = (await fetch_if_uncached(pkg_url))?.body;
+				const pkg = JSON.parse(pkg_json ?? '""');
+				const pkg_url_base = pkg_url.replace(/\/package\.json$/, '');
+
+				const [resolved_id] =
+					resolve.exports(pkg, subpath, {
+						browser: true,
+						conditions: ['svelte', 'production']
+					}) ?? [];
+
+				return new URL((resolved_id ?? '') + '', `${pkg_url_base}/`).href;
+			} catch {}
 
 			throw new Error('No resolution: ' + JSON.stringify({ importee, importer }));
 		},

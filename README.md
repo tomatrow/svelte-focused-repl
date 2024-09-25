@@ -4,6 +4,9 @@
 
 - [x] focused editing
 - [x] arbitrary npm imports via unpkg
+- [x] iframe for live app
+- [ ] works well on mobile
+- [ ] store source as base64 in url
 - [ ] pwa
 
 ## Todo
@@ -25,6 +28,7 @@
 
 ## Sources
 
-https://github.com/sveltejs/sites/tree/master/packages/repl
-https://github.com/PuruVJ/neocodemirror
-https://github.com/joshnuss/use-svelte
+- https://github.com/sveltejs/svelte/blob/main/sites/svelte-5-preview
+- https://github.com/PuruVJ/neocodemirror
+- https://github.com/joshnuss/use-svelte
+- https://github.com/novacbn/svelte-simple-repl

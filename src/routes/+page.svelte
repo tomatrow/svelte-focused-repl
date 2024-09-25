@@ -1,4 +1,6 @@
 <script lang="ts" module>
+	import { browser } from '$app/environment';
+
 	async function createBundler() {
 		const BundlerWorker = await import('./bundler.worker?worker');
 		const bundlerWorker = new BundlerWorker.default();
@@ -7,7 +9,6 @@
 
 		bundlerWorker.addEventListener('message', (event) => {
 			const action = JSON.parse(event.data);
-			// console.log('[bundlerWorker.message]', action);
 
 			if (action.type === 'compile') {
 				const { uid, code } = action;
@@ -39,16 +40,41 @@
 			}
 		};
 	}
+
+	function useDarkMode() {
+		if (!browser) return { isDarkMode: false };
+		const query = window.matchMedia('(prefers-color-scheme: dark)');
+
+		let isDarkMode = $state(query.matches);
+
+		$effect(() => {
+			function onChange() {
+				isDarkMode = query.matches;
+			}
+			query.addEventListener('change', onChange);
+
+			return () => query.removeEventListener('change', onChange);
+		});
+
+		return {
+			get isDarkMode() {
+				return isDarkMode;
+			}
+		};
+	}
 </script>
 
 <script lang="ts">
 	import counterSource from './Counter.svelte?raw';
+	import srcdoc from './srcdoc.html?raw';
 	import { codemirror, withCodemirrorInstance } from '@neocodemirror/svelte';
-	import type { Component, mount as SvelteMount, unmount as SvelteUnmount } from 'svelte';
+	import { solarizedDark } from 'cm6-theme-solarized-dark';
+	import { solarizedLight } from 'cm6-theme-solarized-light';
 
+	const { isDarkMode } = $derived(useDarkMode());
 	let bundler = $state<Awaited<ReturnType<typeof createBundler>>>();
-	let output = $state<string>();
-	let target: HTMLElement;
+	let iframe: HTMLIFrameElement;
+	let lastScript = '';
 
 	const cmInstance = withCodemirrorInstance();
 
@@ -57,40 +83,21 @@
 	});
 
 	$effect(() => {
-		if (!bundler) return;
-
-		bundler.compile($cmInstance.value ?? '').then((newOutput) => (output = newOutput));
-	});
-
-	$effect(() => {
-		if (!output) return;
-		try {
-			const {
-				App,
-				mount,
-				unmount
-			}: {
-				App: Component;
-				mount: typeof SvelteMount;
-				unmount: typeof SvelteUnmount;
-			} = (0, eval)(output);
-
-			const app = mount(App, { target });
-
-			return () => {
-				unmount(app);
-			};
-		} catch (error) {
-			console.error(error);
-		}
+		bundler?.compile($cmInstance.value ?? '').then((script) => {
+			if (script === lastScript) return;
+			iframe.contentWindow?.postMessage({ script }, '*');
+			lastScript = script;
+		});
 	});
 </script>
 
 <section>
 	<div
+		class="codemirror-container"
 		use:codemirror={{
 			value: counterSource,
-			setup: 'minimal',
+			setup: 'basic',
+			lang: 'svelte',
 			useTabs: true,
 			tabSize: 4,
 			langMap: {
@@ -98,24 +105,78 @@
 				css: () => import('@codemirror/lang-css').then((m) => m.css()),
 				svelte: () => import('@replit/codemirror-lang-svelte').then((m) => m.svelte())
 			},
-			// lint: diagnostics,
 			lintOptions: { delay: 200 },
 			autocomplete: true,
-			instanceStore: cmInstance
+			instanceStore: cmInstance,
+			extensions: [isDarkMode ? solarizedDark : solarizedLight]
 		}}
 	></div>
-	<details>
-		<pre>{output}</pre>
-	</details>
-	<div bind:this={target}></div>
+
+	<iframe
+		title="Result"
+		bind:this={iframe}
+		sandbox={[
+			'allow-popups-to-escape-sandbox',
+			'allow-scripts',
+			'allow-popups',
+			'allow-forms',
+			'allow-pointer-lock',
+			'allow-top-navigation',
+			'allow-modals',
+			'allow-same-origin'
+		].join(' ')}
+		srcdoc={browser ? srcdoc : ''}
+	></iframe>
 </section>
 
 <style>
+	:global body {
+		margin: 0;
+		height: 100vh;
+	}
+
 	section {
 		margin: auto;
+		display: flex;
+		height: 100vh;
+	}
 
-		pre {
-			width: 100%;
+	iframe {
+		width: 50%;
+		height: 100%;
+		border: none;
+		display: block;
+	}
+
+	.codemirror-container {
+		position: relative;
+		width: 50%;
+		height: 100vh;
+		border: none;
+		line-height: 1.5;
+		overflow: hidden;
+	}
+
+	@font-face {
+		font-family: 'Fira Code';
+		font-style: normal;
+		font-display: swap;
+		font-weight: 400;
+		src:
+			url(@fontsource/fira-code/files/fira-code-latin-400-normal.woff2) format('woff2'),
+			url(@fontsource/fira-code/files/fira-code-latin-400-normal.woff) format('woff');
+		unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+			U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF,
+			U+FFFD;
+	}
+
+	.codemirror-container :global {
+		* {
+			font: 400 1rem / 1.7 'Fira Code';
+		}
+
+		.cm-editor {
+			height: 100%;
 		}
 	}
 </style>

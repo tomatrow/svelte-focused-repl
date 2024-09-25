@@ -70,6 +70,7 @@
 	import { codemirror, withCodemirrorInstance } from '@neocodemirror/svelte';
 	import { solarizedDark } from 'cm6-theme-solarized-dark';
 	import { solarizedLight } from 'cm6-theme-solarized-light';
+	import { PaneGroup, Pane, PaneResizer } from 'paneforge';
 
 	const { isDarkMode } = $derived(useDarkMode());
 	let bundler = $state<Awaited<ReturnType<typeof createBundler>>>();
@@ -91,43 +92,49 @@
 	});
 </script>
 
-<section>
-	<div
-		class="codemirror-container"
-		use:codemirror={{
-			value: counterSource,
-			setup: 'basic',
-			lang: 'svelte',
-			useTabs: true,
-			tabSize: 4,
-			langMap: {
-				js: () => import('@codemirror/lang-javascript').then((m) => m.javascript()),
-				css: () => import('@codemirror/lang-css').then((m) => m.css()),
-				svelte: () => import('@replit/codemirror-lang-svelte').then((m) => m.svelte())
-			},
-			lintOptions: { delay: 200 },
-			autocomplete: true,
-			instanceStore: cmInstance,
-			extensions: [isDarkMode ? solarizedDark : solarizedLight]
-		}}
-	></div>
-
-	<iframe
-		title="Result"
-		bind:this={iframe}
-		sandbox={[
-			'allow-popups-to-escape-sandbox',
-			'allow-scripts',
-			'allow-popups',
-			'allow-forms',
-			'allow-pointer-lock',
-			'allow-top-navigation',
-			'allow-modals',
-			'allow-same-origin'
-		].join(' ')}
-		srcdoc={browser ? srcdoc : ''}
-	></iframe>
-</section>
+<PaneGroup direction="horizontal" class="editor">
+	<Pane defaultSize={50}>
+		<div
+			class="codemirror-container"
+			use:codemirror={{
+				value: counterSource,
+				setup: 'basic',
+				lang: 'svelte',
+				useTabs: true,
+				tabSize: 4,
+				langMap: {
+					js: () => import('@codemirror/lang-javascript').then((m) => m.javascript()),
+					css: () => import('@codemirror/lang-css').then((m) => m.css()),
+					svelte: () => import('@replit/codemirror-lang-svelte').then((m) => m.svelte())
+				},
+				lintOptions: { delay: 200 },
+				autocomplete: true,
+				instanceStore: cmInstance,
+				extensions: [isDarkMode ? solarizedDark : solarizedLight]
+			}}
+		></div>
+	</Pane>
+	<PaneResizer class="resizer">
+		<div class="handle">&nbsp;</div>
+	</PaneResizer>
+	<Pane defaultSize={50}>
+		<iframe
+			title="Result"
+			bind:this={iframe}
+			sandbox={[
+				'allow-popups-to-escape-sandbox',
+				'allow-scripts',
+				'allow-popups',
+				'allow-forms',
+				'allow-pointer-lock',
+				'allow-top-navigation',
+				'allow-modals',
+				'allow-same-origin'
+			].join(' ')}
+			srcdoc={browser ? srcdoc : ''}
+		></iframe>
+	</Pane>
+</PaneGroup>
 
 <style>
 	:global body {
@@ -135,26 +142,34 @@
 		height: 100vh;
 	}
 
-	section {
-		margin: auto;
+	:global .resizer {
+		width: 0.1rem;
 		display: flex;
-		height: 100vh;
-	}
+		justify-content: center;
+		align-items: center;
 
-	iframe {
-		width: 50%;
-		height: 100%;
-		border: none;
-		display: block;
+		.handle {
+			padding: 0.5rem;
+			background: black;
+			z-index: 10;
+			border-radius: 1rem;
+			border: 1px solid white;
+		}
 	}
 
 	.codemirror-container {
 		position: relative;
-		width: 50%;
-		height: 100vh;
 		border: none;
 		line-height: 1.5;
 		overflow: hidden;
+		height: 100vh;
+	}
+
+	iframe {
+		border: none;
+		display: block;
+		height: 100%;
+		width: 100%;
 	}
 
 	@font-face {
@@ -170,7 +185,7 @@
 			U+FFFD;
 	}
 
-	.codemirror-container :global {
+	:global {
 		* {
 			font: 400 1rem / 1.7 'Fira Code';
 		}

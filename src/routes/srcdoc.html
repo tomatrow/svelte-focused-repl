@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+	<head>
+		<script src="https://unpkg.com/eruda"></script>
+		<script>
+			eruda.init();
+		</script>
+		<script>
+			(function () {
+				let destroy;
+
+				window.addEventListener('message', (event) => {
+					const { App, mount, unmount } = (0, eval)(event.data.script);
+
+					destroy?.();
+
+					const target = document.createElement('div');
+					document.body.append(target);
+					app = mount(App, { target });
+
+					destroy = () => {
+						unmount(app);
+						target.remove();
+					};
+				});
+			})();
+		</script>
+	</head>
+	<body></body>
+</html>

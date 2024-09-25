@@ -1,25 +1,28 @@
 <script lang="ts">
 	import { marked } from 'marked';
 
-	let count = $state(0);
+	let count: number = $state(0);
 
 	function increment() {
 		count += 1;
 	}
 
-	const html = $derived(marked.parse(`**Count**: _${count}_`));
+	const html: string = $derived(marked.parse(`**Count**: _${count}_`));
 </script>
 
-<button onclick={increment}>
-	{@html html}
-</button>
+<svelte:head>
+	<link rel="stylesheet" href="https://unpkg.com/normalize.css" />
+	<link rel="stylesheet" href="https://unpkg.com/magick.css" />
+</svelte:head>
+
+<main>
+	<button onclick={increment}>
+		{@html html}
+	</button>
+</main>
 
 <style>
 	button {
-		all: unset;
-		color: red;
-		border: 1px solid blue;
-		border-radius: 1rem;
-		padding: 0.5rem;
+		margin: 2rem;
 	}
 </style>

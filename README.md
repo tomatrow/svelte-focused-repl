@@ -1,5 +1,9 @@
 # svelte-focused-repl
 
+It's like the svelte repl, but more focused
+
+https://svelte-focused-repl.tomatrow.com
+
 ## Features
 
 - [x] focused editing

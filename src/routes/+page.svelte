@@ -71,6 +71,8 @@
 	import { solarizedDark } from 'cm6-theme-solarized-dark';
 	import { solarizedLight } from 'cm6-theme-solarized-light';
 	import { PaneGroup, Pane, PaneResizer } from 'paneforge';
+	import { replaceState } from '$app/navigation';
+	import { compress_and_encode_text, decode_and_decompress_text } from './gzip';
 
 	const { isDarkMode } = $derived(useDarkMode());
 	let bundler = $state<Awaited<ReturnType<typeof createBundler>>>();
@@ -90,29 +92,60 @@
 			lastScript = script;
 		});
 	});
+
+	async function loadFromHash() {
+		if (!browser) return counterSource;
+		const hash = location.hash.slice(1);
+		if (!hash) return counterSource;
+
+		try {
+			const data = await decode_and_decompress_text(hash);
+			return JSON.parse(data).files[0]?.source ?? counterSource;
+		} catch {}
+	}
+
+	async function change_from_editor(source: string) {
+		replaceState(
+			`${location.pathname}${location.search}#${await compress_and_encode_text(
+				JSON.stringify({ files: [{ name: 'App', type: 'svelte', source }] })
+			)}`,
+			{}
+		);
+	}
+
+	$effect(() => {
+		if (!$cmInstance.value) return;
+		change_from_editor($cmInstance.value ?? '');
+	});
 </script>
 
 <PaneGroup direction="horizontal" class="editor">
 	<Pane defaultSize={50}>
-		<div
-			class="codemirror-container"
-			use:codemirror={{
-				value: counterSource,
-				setup: 'basic',
-				lang: 'svelte',
-				useTabs: true,
-				tabSize: 4,
-				langMap: {
-					js: () => import('@codemirror/lang-javascript').then((m) => m.javascript()),
-					css: () => import('@codemirror/lang-css').then((m) => m.css()),
-					svelte: () => import('@replit/codemirror-lang-svelte').then((m) => m.svelte())
-				},
-				lintOptions: { delay: 200 },
-				autocomplete: true,
-				instanceStore: cmInstance,
-				extensions: [isDarkMode ? solarizedDark : solarizedLight]
-			}}
-		></div>
+		{#await loadFromHash() then source}
+			<div
+				class="codemirror-container"
+				use:codemirror={{
+					onChangeBehavior: {
+						kind: 'debounce',
+						duration: 200
+					},
+					value: source,
+					setup: 'basic',
+					lang: 'svelte',
+					useTabs: true,
+					tabSize: 4,
+					langMap: {
+						js: () => import('@codemirror/lang-javascript').then((m) => m.javascript()),
+						css: () => import('@codemirror/lang-css').then((m) => m.css()),
+						svelte: () => import('@replit/codemirror-lang-svelte').then((m) => m.svelte())
+					},
+					lintOptions: { delay: 200 },
+					autocomplete: true,
+					instanceStore: cmInstance,
+					extensions: [isDarkMode ? solarizedDark : solarizedLight]
+				}}
+			></div>
+		{/await}
 	</Pane>
 	<PaneResizer class="resizer">
 		<div class="handle">&nbsp;</div>

@@ -9,9 +9,9 @@ https://svelte-focused-repl.tomatrow.com
 - [x] focused editing
 - [x] arbitrary npm imports via unpkg
 - [x] iframe for live app
+- [x] store source as base64 in url
+- [x] pwa
 - [ ] works well on mobile
-- [ ] store source as base64 in url
-- [ ] pwa
 
 ## Todo
 

@@ -11,6 +11,7 @@ https://svelte-focused-repl.tomatrow.com
 - [x] iframe for live app
 - [x] store source as base64 in url
 - [x] pwa
+  - [ ] fullscreen
 - [ ] works well on mobile
 
 ## Todo

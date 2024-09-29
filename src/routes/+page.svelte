@@ -1,110 +1,22 @@
 <script lang="ts" module>
 	import { browser } from '$app/environment';
-
-	async function createBundler() {
-		const BundlerWorker = await import('./bundler.worker?worker');
-		const bundlerWorker = new BundlerWorker.default();
-		let uid = 0;
-		const callbacks = new Map<number, (compiledSource: string) => void>();
-
-		bundlerWorker.addEventListener('message', (event) => {
-			const action = JSON.parse(event.data);
-
-			if (action.type === 'compile') {
-				const { uid, code } = action;
-				const callback = callbacks.get(uid);
-				callback?.(code);
-				callbacks.delete(uid);
-			}
-		});
-
-		bundlerWorker.addEventListener('messageerror', (event) => {
-			console.log('[bundlerWorker.messageerror]', event);
-		});
-
-		return {
-			compile(source: string) {
-				return new Promise<string>((resolve) => {
-					callbacks.set(uid, resolve);
-
-					bundlerWorker.postMessage(
-						JSON.stringify({
-							type: 'compile',
-							uid,
-							source
-						})
-					);
-
-					uid++;
-				});
-			}
-		};
-	}
-
-	function useDarkMode() {
-		if (!browser) return { isDarkMode: false };
-		const query = window.matchMedia('(prefers-color-scheme: dark)');
-
-		let isDarkMode = $state(query.matches);
-
-		$effect(() => {
-			function onChange() {
-				isDarkMode = query.matches;
-			}
-			query.addEventListener('change', onChange);
-
-			return () => query.removeEventListener('change', onChange);
-		});
-
-		return {
-			get isDarkMode() {
-				return isDarkMode;
-			}
-		};
-	}
-</script>
-
-<script lang="ts">
-	import counterSource from './Counter.svelte?raw';
-	import srcdoc from './srcdoc.html?raw';
-	import { codemirror, withCodemirrorInstance } from '@neocodemirror/svelte';
-	import { solarizedDark } from 'cm6-theme-solarized-dark';
-	import { solarizedLight } from 'cm6-theme-solarized-light';
-	import { PaneGroup, Pane, PaneResizer } from 'paneforge';
 	import { replaceState } from '$app/navigation';
 	import { compress_and_encode_text, decode_and_decompress_text } from './gzip';
 
-	const { isDarkMode } = $derived(useDarkMode());
-	let bundler = $state<Awaited<ReturnType<typeof createBundler>>>();
-	let iframe: HTMLIFrameElement;
-	let lastScript = '';
-
-	const cmInstance = withCodemirrorInstance();
-
-	$effect(() => {
-		createBundler().then((newBundler) => (bundler = newBundler));
-	});
-
-	$effect(() => {
-		bundler?.compile($cmInstance.value ?? '').then((script) => {
-			if (script === lastScript) return;
-			iframe.contentWindow?.postMessage({ script }, '*');
-			lastScript = script;
-		});
-	});
-
-	async function loadFromHash() {
-		if (!browser) return counterSource;
+	async function loadSourceFromHash() {
+		if (!browser) return;
 		const hash = location.hash.slice(1);
-		if (!hash) return counterSource;
+		if (!hash) return;
 
 		try {
 			const data = await decode_and_decompress_text(hash);
-			return JSON.parse(data).files[0]?.source ?? counterSource;
-		} catch {}
+			return JSON.parse(data).files.find((file: any) => file.name === 'App').source as string;
+		} catch {
+			return;
+		}
 	}
 
-	async function change_from_editor(source: string) {
+	async function onSourceChange(source: string) {
 		replaceState(
 			`${location.pathname}${location.search}#${await compress_and_encode_text(
 				JSON.stringify({ files: [{ name: 'App', type: 'svelte', source }] })
@@ -112,119 +24,20 @@
 			{}
 		);
 	}
-
-	$effect(() => {
-		if (!$cmInstance.value) return;
-		change_from_editor($cmInstance.value ?? '');
-	});
 </script>
 
-<PaneGroup direction="horizontal" class="editor">
-	<Pane defaultSize={50}>
-		{#await loadFromHash() then source}
-			<div
-				class="codemirror-container"
-				use:codemirror={{
-					onChangeBehavior: {
-						kind: 'debounce',
-						duration: 200
-					},
-					value: source,
-					setup: 'basic',
-					lang: 'svelte',
-					useTabs: true,
-					tabSize: 4,
-					langMap: {
-						js: () => import('@codemirror/lang-javascript').then((m) => m.javascript()),
-						css: () => import('@codemirror/lang-css').then((m) => m.css()),
-						svelte: () => import('@replit/codemirror-lang-svelte').then((m) => m.svelte())
-					},
-					lintOptions: { delay: 200 },
-					autocomplete: true,
-					instanceStore: cmInstance,
-					extensions: [isDarkMode ? solarizedDark : solarizedLight]
-				}}
-			></div>
-		{/await}
-	</Pane>
-	<PaneResizer class="resizer">
-		<div class="handle">&nbsp;</div>
-	</PaneResizer>
-	<Pane defaultSize={50}>
-		<iframe
-			title="Result"
-			bind:this={iframe}
-			sandbox={[
-				'allow-popups-to-escape-sandbox',
-				'allow-scripts',
-				'allow-popups',
-				'allow-forms',
-				'allow-pointer-lock',
-				'allow-top-navigation',
-				'allow-modals',
-				'allow-same-origin'
-			].join(' ')}
-			srcdoc={browser ? srcdoc : ''}
-		></iframe>
-	</Pane>
-</PaneGroup>
+<script lang="ts">
+	import counterSource from './Counter.svelte?raw';
+	import Repl from './Repl.svelte';
+</script>
+
+{#await loadSourceFromHash() then source}
+	<Repl source={source ?? counterSource} onChange={onSourceChange} />
+{/await}
 
 <style>
 	:global body {
 		margin: 0;
 		height: 100vh;
-	}
-
-	:global .resizer {
-		width: 0.1rem;
-		display: flex;
-		justify-content: center;
-		align-items: center;
-
-		.handle {
-			padding: 0.5rem;
-			background: black;
-			z-index: 10;
-			border-radius: 1rem;
-			border: 1px solid white;
-		}
-	}
-
-	.codemirror-container {
-		position: relative;
-		border: none;
-		line-height: 1.5;
-		overflow: hidden;
-		height: 100vh;
-	}
-
-	iframe {
-		border: none;
-		display: block;
-		height: 100%;
-		width: 100%;
-	}
-
-	@font-face {
-		font-family: 'Fira Code';
-		font-style: normal;
-		font-display: swap;
-		font-weight: 400;
-		src:
-			url(@fontsource/fira-code/files/fira-code-latin-400-normal.woff2) format('woff2'),
-			url(@fontsource/fira-code/files/fira-code-latin-400-normal.woff) format('woff');
-		unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
-			U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF,
-			U+FFFD;
-	}
-
-	:global {
-		* {
-			font: 400 1rem / 1.7 'Fira Code';
-		}
-
-		.cm-editor {
-			height: 100%;
-		}
 	}
 </style>
